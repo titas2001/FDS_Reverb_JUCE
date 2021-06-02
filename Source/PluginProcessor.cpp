@@ -46,7 +46,7 @@ FDS_ReverbAudioProcessor::FDS_ReverbAudioProcessor()
     for (int n = 0; n < 3; ++n)
         for (int i = 0; i < Nx + 1; ++i)
             for (int j = 0; j < Ny + 1; ++j)
-                p[n][j][i] = &pStates[n][i][j][0];
+                p[n][i][j] = &pStates[n][i][j][0];
 
 
 
@@ -188,10 +188,10 @@ void FDS_ReverbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
         for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
         {
             vin = buffer.getSample(channel, sample);
-            p[1][3][3][3] = vin;
+            p[1][3][3][3] += vin;
             calculateScheme();
             updateStates();
-            vout = p[1][3][2][3];
+            vout = p[1][3][3][3];
             buffer.setSample(channel, sample, vout);
         }
 
@@ -350,13 +350,10 @@ void FDS_ReverbAudioProcessor::updateStates()
     {
         for (int j = 0; j <= Ny; ++j)
         {
-            for (int k = 0; k <= Nz; ++k)
-            {
                 double* pTmp = p[2][i][j];
                 p[2][i][j] = p[1][i][j];
                 p[1][i][j] = p[0][i][j];
                 p[0][i][j] = pTmp;
-            }
         }
     }
 }
