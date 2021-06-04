@@ -29,26 +29,12 @@ FDS_ReverbAudioProcessor::FDS_ReverbAudioProcessor()
     
 
     for (int i = 0; i < 3; ++i)
-        pStates.push_back  (std::vector<std::vector<std::vector<double>>> (Nx+1,
-                            std::vector<std::vector<double>> (Ny+1,
-                            std::vector<double> (Nz+1, 0.0))));
+        pStates.push_back(std::vector<double>(Nx, 0));
 
-
-
-    p.reserve(3);
-
-    for (int i = 0; i < 3; ++i)
-        p.push_back(std::vector<std::vector<double*>>(Nx + 1,
-                    std::vector<double*>(Ny + 1, nullptr)));
-
+    p.resize(3);
     
-
-    for (int n = 0; n < 3; ++n)
-        for (int i = 0; i < Nx + 1; ++i)
-            for (int j = 0; j < Ny + 1; ++j)
-                p[n][i][j] = &pStates[n][i][j][0];
-
-
+    for (int i = 0; i < p.size(); ++i)
+        p[i] = &pStates[i][0];
 
 
 }
@@ -188,10 +174,10 @@ void FDS_ReverbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
         for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
         {
             vin = buffer.getSample(channel, sample);
-            p[1][3][3][3] += vin;
+            p[1][3 + 3*Ny + 3*Ny*Nz] += vin;
             calculateScheme();
             updateStates();
-            vout = p[1][3][3][3];
+            vout = p[1][3 + 3*Ny + 3 *Ny*Nz];
             buffer.setSample(channel, sample, vout);
         }
 
@@ -219,143 +205,138 @@ void FDS_ReverbAudioProcessor::calculateScheme()
 {
     /* ================================================= GENERAL ======================================================================*/
 
-    for (int i = 1; i < Nx; ++i)            // not including the boundaries
+    for (int i = 1; i < Nx-1; ++i)            // not including the boundaries
     {
-        for (int j = 1; j < Ny; ++j)        // not including the boundaries
+        for (int j = 1; j < Ny-1; ++j)        // not including the boundaries
         {
-            for (int k = 1; k < Nz; ++k)    // not including the boundaries
+            for (int k = 1; k < Nz-1; ++k)    // not including the boundaries
             {
-                p[0][i][j][k] =
-                    Dg1 * (p[1][i + 1][j][k] + p[1][i - 1][j][k] + p[1][i][j + 1][k] + p[1][i][j - 1][k] + p[1][i][j][k + 1]
-                           + p[1][i][j][k - 1] + 2 * p[1][i][j][k]) - Dg2 * p[2][i][j][k];
+                p[0][i + (j)*Ny + (k)*Ny*Nz] =
+                    Dg1 * (p[1][(i + 1) + (j)*Ny + (k)*Ny*Nz] + p[1][(i - 1) + (j)*Ny + (k)*Ny*Nz] + p[1][i + (j + 1) * Ny + (k)*Ny*Nz]
+                        + p[1][i + (j - 1) * Ny + (k)*Ny*Nz] + p[1][i + (j)*Ny + (k + 1) * Ny*Nz] + p[1][i + (j)*Ny + (k - 1)*Ny*Nz]
+                        + 2*p[1][i + (j)*Ny + (k)*Ny*Nz]) - Dg2 * p[2][i + (j)*Ny + (k)*Ny*Nz];
             }
         }
     }
     /*=================================================== INTERIOR =========================================================================*/
-    for (int i = 1; i < Nx; ++i) // Top and bottom faces
+    for (int i = 1; i < Nx - 1; ++i) // Top and bottom faces
     {
-        for (int j = 1; j < Ny; ++j)
+        for (int j = 1; j < Ny - 1; ++j)
         {
-            p[0][i][j][0] =                                                                                              // Bottom ABCD
-                Di1 * (p[1][i + 1][j][0] + p[1][i - 1][j][0] + p[1][i][j + 1][0] + p[1][i][j - 1][0] + p[1][i][j][0 + 1]
-                    + p[1][i][j][0 + 1] + 2 * p[1][i][j][0]) - Di2 * p[2][i][j][0]; 
-            p[0][i][j][Nz] =                                                                                             // Top EFGH
-                Di1 * (p[1][i + 1][j][Nz] + p[1][i - 1][j][Nz] + p[1][i][j + 1][Nz] + p[1][i][j - 1][Nz] + p[1][i][j][Nz - 1]
-                    + p[1][i][j][Nz - 1] + 2 * p[1][i][j][Nz]) - Di2 * p[2][i][j][Nz];
+            p[0][i + (j)*Ny + 0] =                                                                                              // Bottom ABCD
+                Di1 * (p[1][(i + 1) + (j)*Ny] + p[1][(i - 1) + (j)*Ny] + p[1][i + (j + 1)*Ny] + p[1][i + (j - 1)*Ny] + p[1][i + (j)*Ny + (1)*Ny*Nz]
+                    + p[1][i + (j)*Ny + (1)*Ny*Nz] + 2*p[1][i + (j)*Ny]) - Di2 * p[2][i + (j)*Ny];
+            p[0][i + (j)*Ny + (Nz - 1)*Ny*Nz] =                                                                                             // Top EFGH
+                Di1 * (p[1][(i + 1) + (j)*Ny + (Nz - 1)*Ny*Nz] + p[1][(i - 1) + (j)*Ny + (Nz - 1)*Ny*Nz] + p[1][i + (j + 1)*Ny + (Nz - 1)*Ny*Nz] + p[1][i + (j - 1) * Ny + (Nz - 1)*Ny*Nz] + p[1][i + (j)*Ny + (Nz - 1)*Ny*Nz]
+                    + p[1][i + (j)*Ny + (Nz - 1)*Ny*Nz] + 2*p[1][i + (j)*Ny + (Nz - 1)*Ny*Nz]) - Di2 * p[2][i + (j)*Ny + (Nz - 1)*Ny*Nz];
         }
     }
-    for (int i = 1; i < Nx; ++i) // Front and Back faces
+    for (int i = 1; i < Nx - 1; ++i) // Front and Back faces
     {
-        for (int k = 1; k < Nz; ++k)
+        for (int k = 1; k < Nz - 1; ++k)
         {
-            p[0][i][0][k] =                                                                                              // Front AFEF
-                Di1 * (p[1][i + 1][0][k] + p[1][i - 1][0][k] + p[1][i][0 + 1][k] + p[1][i][0 + 1][k] + p[1][i][0][k + 1]
-                    + p[1][i][0][k - 1] + 2 * p[1][i][0][k]) - Di2 * p[2][i][0][k];
-            p[0][i][Ny][k] =                                                                                             // Back CDGH
-                Di1 * (p[1][i + 1][Ny][k] + p[1][i - 1][Ny][k] + p[1][i][Ny - 1][k] + p[1][i][Ny - 1][k] + p[1][i][Ny][k + 1]
-                    + p[1][i][Ny][k - 1] + 2 * p[1][i][Ny][k]) - Di2 * p[2][i][Ny][k];
+            p[0][i + (k)*Ny*Nz] =                                                                                              // Front AFEF
+            Di1 * (p[1][(i + 1) + (k)*Ny*Nz] + p[1][(i - 1) + (k)*Ny*Nz] + p[1][i + (1)*Ny + (k)*Ny*Nz] + p[1][i + (1)*Ny + (k)*Ny*Nz] + p[1][i + (k + 1)*Ny*Nz]
+                + p[1][i + (k - 1)*Ny*Nz] + 2*p[1][i + (k)*Ny*Nz]) - Di2 * p[2][i + (k)*Ny*Nz];
+            p[0][i + (Ny - 1)*Ny + (k)*Ny*Nz] =                                                                                             // Back CDGH
+                Di1 * (p[1][(i + 1) + (Ny - 1)*Ny + (k)*Ny*Nz] + p[1][(i - 1) + (Ny - 1)*Ny + (k)*Ny*Nz] + p[1][i + (Ny - 1 - 1)*Ny + (k)*Ny*Nz] + p[1][i + (Ny - 1 - 1)*Ny + (k)*Ny*Nz] + p[1][i + (Ny)*Ny + (k + 1)*Ny*Nz]
+                    + p[1][i + (Ny - 1)*Ny + (k - 1)*Ny*Nz] + 2*p[1][i + (Ny - 1)*Ny + (k)*Ny*Nz]) - Di2 * p[2][i + (Ny - 1)*Ny + (k)*Ny*Nz];
         }
     }
-    for (int j = 1; j < Nx; ++j) // Left and Right faces
+    for (int j = 1; j < Ny - 1; ++j) // Left and Right faces
     {
-        for (int k = 1; k < Nz; ++k)
+        for (int k = 1; k < Nz - 1; ++k)
         {
-            p[0][0][j][k] =                                                                                              // Left ADEH
-                Di1 * (p[1][0 + 1][j][k] + p[1][0 + 1][j][k] + p[1][0][j + 1][k] + p[1][0][j - 1][k] + p[1][0][j][k + 1]
-                    + p[1][0][j][k - 1] + 2 * p[1][0][j][k]) - Di2 * p[2][0][j][k];
-            p[0][Nx][j][k] =                                                                                             // Right BCFG
-                Di1 * (p[1][Nx - 1][j][k] + p[1][Nx - 1][j][k] + p[1][Nx][j + 1][k] + p[1][Nx][j - 1][k] + p[1][Nx][j][k + 1]
-                    + p[1][Nx][j][k - 1] + 2 * p[1][Nx][j][k]) - Di2 * p[2][Nx][j][k];
+            p[0][(j)*Ny + (k)*Ny*Nz] =                                                                                              // Left ADEH
+                Di1 * (p[1][(1) + (j)*Ny + (k)*Ny*Nz] + p[1][(1) + (j)*Ny + (k)*Ny*Nz] + p[1][(j + 1)*Ny + (k)*Ny*Nz] + p[1][(j - 1)*Ny + (k)*Ny*Nz] + p[1][(j)*Ny + (k + 1)*Ny*Nz]
+                    + p[1][(j)*Ny + (k - 1)*Ny*Nz] + 2*p[1][(j)*Ny + (k)*Ny*Nz]) - Di2 * p[2][(j)*Ny + (k)*Ny*Nz];
+            p[0][(Nx - 1) + (j)*Ny + (k)*Ny*Nz] =                                                                                             // Right BCFG
+                Di1 * (p[1][(Nx - 1 - 1) + (j)*Ny + (k)*Ny*Nz] + p[1][(Nx - 1 - 1) + (j)*Ny + (k)*Ny*Nz] + p[1][(Nx - 1) + (j + 1)*Ny + (k)*Ny*Nz] + p[1][(Nx - 1) + (j - 1)*Ny + (k)*Ny*Nz] + p[1][(Nx - 1) + (j)*Ny + (k + 1)*Ny*Nz]
+                    + p[1][(Nx - 1) + (j)*Ny + (k - 1)*Ny*Nz] + 2*p[1][(Nx - 1) + (j)*Ny + (k)*Ny*Nz]) - Di2 * p[2][(Nx - 1) + (j)*Ny + (k)*Ny*Nz];
         }
     }
     /*=================================================== EDGES =========================================================================*/
-  
-    for (int i = 1; i < Nx; ++i) // X edges
+
+    for (int i = 1; i < Nx - 1; ++i) // X edges
     {
-        p[0][i][0][0] =                                                                                              // AB
-            De1 * (p[1][i + 1][0][0] + p[1][i - 1][0][0] + p[1][i][0 + 1][0] + p[1][i][0 + 1][0] + p[1][i][0][0 + 1]
-                + p[1][i][0][0 + 1] + 2 * p[1][i][0][0]) - De2 * p[2][i][0][0];
-        p[0][i][Ny][0] =                                                                                             // CD
-            De1 * (p[1][i + 1][Ny][0] + p[1][i - 1][Ny][0] + p[1][i][Ny - 1][0] + p[1][i][Ny - 1][0] + p[1][i][Ny][0 + 1]
-                + p[1][i][Ny][0 + 1] + 2 * p[1][i][Ny][0]) - De2 * p[2][i][Ny][0];
-        p[0][i][0][Nz] =                                                                                             // EF
-            De1 * (p[1][i + 1][0][Nz] + p[1][i - 1][0][Nz] + p[1][i][0 + 1][Nz] + p[1][i][0 + 1][Nz] + p[1][i][0][Nz - 1]
-                + p[1][i][0][Nz - 1] + 2 * p[1][i][0][Nz]) - De2 * p[2][i][0][Nz];
-        p[0][i][Ny][Nz] =                                                                                            // GH
-            De1 * (p[1][i + 1][Ny][Nz] + p[1][i - 1][Ny][Nz] + p[1][i][Ny - 1][Nz] + p[1][i][Ny - 1][Nz] + p[1][i][Ny][Nz - 1]
-                + p[1][i][Ny][Nz - 1] + 2 * p[1][i][Ny][Nz]) - De2 * p[2][i][Ny][Nz];
+        p[0][i] =                                                                                              // AB
+            De1 * (p[1][(i + 1)] + p[1][(i - 1)] + p[1][i + (1)*Ny] + p[1][i + (1)*Ny] + p[1][i + (1)*Ny*Nz]
+                + p[1][i + (1)*Ny*Nz] + 2*p[1][i]) - De2 * p[2][i];
+        p[0][i + (Ny - 1)*Ny] =                                                                                             // CD
+            De1 * (p[1][(i + 1) + (Ny - 1)*Ny] + p[1][(i - 1) + (Ny - 1)*Ny] + p[1][i + (Ny - 1 - 1)*Ny] + p[1][i + (Ny - 1 - 1)*Ny] + p[1][i + (Ny - 1)*Ny + (1)*Ny*Nz]
+                + p[1][i + (Ny - 1)*Ny + (1)*Ny*Nz] + 2*p[1][i + (Ny - 1)*Ny]) - De2 * p[2][i + (Ny - 1)*Ny];
+        p[0][i + (Nz - 1)*Ny*Nz] =                                                                                             // EF
+            De1 * (p[1][(i + 1) + (Nz - 1)*Ny*Nz] + p[1][(i - 1) + (Nz - 1)*Ny*Nz] + p[1][i + (1)*Ny + (Nz - 1)*Ny*Nz] + p[1][i + (1)*Ny + (Nz - 1)*Ny*Nz] + p[1][i + (Nz - 1 - 1)*Ny*Nz]
+                + p[1][i + (Nz - 1 - 1)*Ny*Nz] + 2*p[1][i + (Nz - 1)*Ny*Nz]) - De2 * p[2][i + (Nz - 1)*Ny*Nz];
+        p[0][i + (Ny - 1)*Ny + (Nz - 1)*Ny*Nz] =                                                                                            // GH
+            De1 * (p[1][(i + 1) + (Ny - 1)*Ny + (Nz - 1)*Ny*Nz] + p[1][(i - 1) + (Ny - 1)*Ny + (Nz - 1)*Ny*Nz] + p[1][i + (Ny - 1 - 1)*Ny + (Nz - 1)*Ny*Nz] + p[1][i + (Ny - 1 - 1)*Ny + (Nz - 1)*Ny*Nz] + p[1][i + (Ny - 1)*Ny + (Nz - 1 - 1)*Ny*Nz]
+                + p[1][i + (Ny - 1)*Ny + (Nz - 1 - 1)*Ny*Nz] + 2*p[1][i + (Ny - 1)*Ny + (Nz - 1)*Ny*Nz]) - De2 * p[2][i + (Ny - 1)*Ny + (Nz - 1)*Ny*Nz];
     }
-    for (int j = 1; j < Ny; ++j) // Y edges
+    for (int j = 1; j < Ny - 1; ++j) // Y edges
     {
-        p[0][0][j][0] =                                                                                              // AD
-            De1 * (p[1][0 + 1][j][0] + p[1][0 + 1][j][0] + p[1][0][j + 1][0] + p[1][0][j - 1][0] + p[1][0][j][0 + 1]
-                + p[1][0][j][0 + 1] + 2 * p[1][0][j][0]) - De2 * p[2][0][j][0];
-        p[0][Nx][j][0] =                                                                                             // BC
-            De1 * (p[1][Nx - 1][j][0] + p[1][Nx - 1][j][0] + p[1][Nx][j + 1][0] + p[1][Nx][j - 1][0] + p[1][Nx][j][0 + 1]
-                + p[1][Nx][j][0 + 1] + 2 * p[1][Nx][j][0]) - De2 * p[2][Nx][j][0];
-        p[0][0][j][Nz] =                                                                                             // EH
-            De1 * (p[1][0 + 1][j][Nz] + p[1][0 + 1][j][Nz] + p[1][0][j + 1][Nz] + p[1][0][j - 1][Nz] + p[1][0][j][Nz - 1]
-                + p[1][0][j][Nz - 1] + 2 * p[1][0][j][Nz]) - De2 * p[2][0][j][Nz];
-        p[0][Nx][j][Nz] =                                                                                            // FG
-            De1 * (p[1][Nx - 1][j][Nz] + p[1][Nx - 1][j][Nz] + p[1][Nx][j + 1][Nz] + p[1][Nx][j - 1][Nz] + p[1][Nx][j][Nz - 1]
-                + p[1][Nx][j][Nz - 1] + 2 * p[1][Nx][j][Nz]) - De2 * p[2][Nx][j][Nz];
+        p[0][(j)*Ny] =                                                                                              // AD
+            De1 * (p[1][(1) + (j)*Ny] + p[1][(1) + (j)*Ny] + p[1][(j + 1)*Ny] + p[1][(j - 1)*Ny] + p[1][(j)*Ny + (1)*Ny*Nz]
+                + p[1][(j)*Ny + (1)*Ny*Nz] + 2*p[1][(j)*Ny]) - De2 * p[2][(j)*Ny];
+        p[0][Nx - 1 + (j)*Ny] =                                                                                             // BC
+            De1 * (p[1][(Nx - 1 - 1) + (j)*Ny] + p[1][(Nx - 1 - 1) + (j)*Ny] + p[1][(Nx - 1) + (j + 1)*Ny] + p[1][(Nx - 1) + (j - 1)*Ny] + p[1][(Nx - 1) + (j)*Ny + (1)*Ny*Nz]
+                + p[1][(Nx - 1) + (j)*Ny + (1)*Ny*Nz] + 2*p[1][(Nx - 1) + (j)*Ny]) - De2 * p[2][(Nx - 1) + (j)*Ny];
+        p[0][(j)*Ny + (Nz - 1)*Ny*Nz] =                                                                                             // EH
+            De1 * (p[1][(1) + (j)*Ny + (Nz - 1)*Ny*Nz] + p[1][(1) + (j)*Ny + (Nz - 1)*Ny*Nz] + p[1][(j + 1)*Ny + (Nz - 1)*Ny*Nz] + p[1][(j - 1)*Ny + (Nz - 1)*Ny*Nz] + p[1][(j)*Ny + (Nz - 1 - 1)*Ny*Nz]
+                + p[1][(j)*Ny + (Nz - 1 - 1)*Ny*Nz] + 2*p[1][(j)*Ny + (Nz - 1)*Ny*Nz]) - De2 * p[2][(j)*Ny + (Nz - 1)*Ny*Nz];
+        p[0][(Nx - 1) + (j)*Ny + (Nz - 1)*Ny*Nz] =                                                                                            // FG
+            De1 * (p[1][(Nx - 1 - 1) + (j)*Ny + (Nz - 1)*Ny*Nz] + p[1][(Nx - 1 - 1) + (j)*Ny + (Nz - 1)*Ny*Nz] + p[1][(Nx - 1) + (j + 1)*Ny + (Nz - 1)*Ny*Nz] + p[1][(Nx - 1) + (j - 1)*Ny + (Nz - 1)*Ny*Nz] + p[1][(Nx - 1) + (j)*Ny + (Nz - 1 - 1)*Ny*Nz]
+                + p[1][(Nx - 1) + (j)*Ny + (Nz - 1 - 1)*Ny*Nz] + 2*p[1][(Nx - 1) + (j)*Ny + (Nz - 1)*Ny*Nz]) - De2 * p[2][(Nx - 1) + (j)*Ny + (Nz - 1)*Ny*Nz];
     }
-    for (int k = 1; k < Nz; ++k) // Z edges
+    for (int k = 1; k < Nz - 1; ++k) // Z edges
     {
-        p[0][0][0][k] =                                                                                              // AE
-            De1 * (p[1][0 + 1][0][k] + p[1][0 + 1][0][k] + p[1][0][0 + 1][k] + p[1][0][0 + 1][k] + p[1][0][0][k + 1]
-                + p[1][0][0][k - 1] + 2 * p[1][0][0][k]) - De2 * p[2][0][0][k];
-        p[0][Nx][0][k] =                                                                                             // BF
-            De1 * (p[1][Nx - 1][0][k] + p[1][Nx - 1][0][k] + p[1][Nx][0 + 1][k] + p[1][Nx][0 + 1][k] + p[1][Nx][0][k + 1]
-                + p[1][Nx][0][k - 1] + 2 * p[1][Nx][0][k]) - De2 * p[2][Nx][0][k];
-        p[0][0][Ny][k] =                                                                                             // DH
-            De1 * (p[1][0 + 1][Ny][k] + p[1][0 + 1][Ny][k] + p[1][0][Ny - 1][k] + p[1][0][Ny - 1][k] + p[1][0][Ny][k + 1]
-                + p[1][0][Ny][k - 1] + 2 * p[1][0][Ny][k]) - De2 * p[2][0][Ny][k];
-        p[0][0][Ny][k] =                                                                                             // CG
-            De1 * (p[1][Nx - 1][Ny][k] + p[1][Nx - 1][Ny][k] + p[1][Nx][Ny - 1][k] + p[1][Nx][Ny - 1][k] + p[1][Nx][Ny][k + 1]
-                + p[1][Nx][Ny][k - 1] + 2 * p[1][Nx][Ny][k]) - De2 * p[2][Nx][Ny][k];
+        p[0][(k)*Ny*Nz] =                                                                                              // AE
+            De1 * (p[1][(1) + (k)*Ny*Nz] + p[1][(1) + (k)*Ny*Nz] + p[1][(1)*Ny +  (k)*Ny*Nz] + p[1][(1)*Ny + (k)*Ny*Nz] + p[1][(k + 1)*Ny*Nz]
+            + p[1][(k - 1)*Ny*Nz] + 2*p[1][(k)*Ny*Nz]) - De2 * p[2][(k)*Ny*Nz];
+        p[0][(Nx - 1) + (k)*Ny*Nz] =                                                                                             // BF
+            De1 * (p[1][(Nx - 1 - 1) + (k)*Ny*Nz] + p[1][(Nx - 1 - 1) + (k)*Ny*Nz] + p[1][(Nx - 1) + (1)*Ny + (k)*Ny*Nz] + p[1][(Nx - 1) + (1)*Ny + (k)*Ny*Nz] + p[1][(Nx - 1) + (k + 1)*Ny*Nz]
+            + p[1][(Nx - 1) + (k - 1)*Ny*Nz] + 2*p[1][(Nx - 1) + (k)*Ny*Nz]) - De2 * p[2][(Nx - 1) + (k)*Ny*Nz];
+        p[0][(Ny - 1)*Ny + (k)*Ny*Nz] =                                                                                             // DH
+                De1 * (p[1][(1) + (Ny - 1)*Ny + (k)*Ny*Nz] + p[1][(1) + (Ny - 1)*Ny + (k)*Ny*Nz] + p[1][(Ny - 1 - 1)*Ny + (k)*Ny*Nz] + p[1][(Ny - 1 - 1)*Ny + (k)*Ny*Nz] + p[1][(Ny - 1)*Ny + (k + 1)*Ny*Nz]
+                    + p[1][(Ny - 1)*Ny + (k - 1)*Ny*Nz] + 2*p[1][(Ny - 1)*Ny + (k)*Ny*Nz]) - De2 * p[2][(Ny - 1)*Ny + (k)*Ny*Nz];
+        p[0][(Nx - 1) + (Ny - 1)*Ny + (k)*Ny*Nz] =                                                                                             // CG
+                De1 * (p[1][(Nz - 1 - 1) + (Ny - 1)*Ny + (k)*Ny*Nz] + p[1][(Nz - 1 - 1) + (Ny - 1)*Ny + (k)*Ny*Nz] + p[1][(Nx - 1) + (Ny - 1 - 1)*Ny + (k)*Ny*Nz] + p[1][(Nx - 1) + (Ny - 1 - 1)*Ny + (k)*Ny*Nz] + p[1][(Nx - 1) + (Ny - 1)*Ny + (k + 1)*Ny*Nz]
+                    + p[1][(Nx - 1) + (Ny - 1)*Ny + (k - 1)*Ny*Nz] + 2*p[1][(Nx - 1) + (Ny - 1)*Ny + (k)*Ny*Nz]) - De2 * p[2][(Nx - 1) + (Ny - 1)*Ny + (k)*Ny*Nz];
     }
 
-    /* ============================================ CORNERS ===============================================================*/ 
-    
-    p[0][0][0][0] =                                                                                              // A
-        Dc1 * (p[1][0 + 1][0][0] + p[1][0 + 1][0][0] + p[1][0][0 + 1][0] + p[1][0][0 + 1][0] + p[1][0][0][0 + 1]
-            + p[1][0][0][0 + 1] + 2 * p[1][0][0][0]) - Dc2 * p[2][0][0][0];
-    p[0][0][0][Nz] =                                                                                             // E
-        Dc1 * (p[1][0 + 1][0][Nz] + p[1][0 + 1][0][Nz] + p[1][0][0 + 1][Nz] + p[1][0][0 + 1][Nz] + p[1][0][0][Nz - 1]
-            + p[1][0][0][Nz - 1] + 2 * p[1][0][0][Nz]) - Dc2 * p[2][0][0][Nz];
-    p[0][0][Ny][0] =                                                                                             // D
-        Dc1 * (p[1][0 + 1][Ny][0] + p[1][0 + 1][Ny][0] + p[1][0][Ny - 1][0] + p[1][0][Ny - 1][0] + p[1][0][Ny][0 + 1]
-            + p[1][0][Ny][0 + 1] + 2 * p[1][0][Ny][0]) - Dc2 * p[2][0][Ny][0];
-    p[0][Nx][0][0] =                                                                                             // B
-        Dc1 * (p[1][Nx - 1][0][0] + p[1][Nx - 1][0][0] + p[1][Nx][0 + 1][0] + p[1][Nx][0 + 1][0] + p[1][Nx][0][0 + 1]
-            + p[1][Nx][0][0 + 1] + 2 * p[1][Nx][0][0]) - Dc2 * p[2][Nx][0][0];
-    p[0][0][Ny][Nz] =                                                                                            // H
-        Dc1 * (p[1][0 + 1][Ny][Nz] + p[1][0 + 1][Ny][Nz] + p[1][0][Ny - 1][Nz] + p[1][0][Ny - 1][Nz] + p[1][0][Ny][Nz - 1]
-            + p[1][0][Ny][Nz - 1] + 2 * p[1][0][Ny][Nz]) - Dc2 * p[2][0][Ny][Nz];
-    p[0][Nx][0][Nz] =                                                                                            // F
-        Dc1 * (p[1][Nx - 1][0][Nz] + p[1][Nx - 1][0][Nz] + p[1][Nx][0 + 1][Nz] + p[1][Nx][0 + 1][Nz] + p[1][Nx][0][Nz - 1]
-            + p[1][Nx][0][Nz - 1] + 2 * p[1][Nx][0][Nz]) - Dc2 * p[2][Nx][0][Nz];
-    p[0][Nx][Ny][0] =                                                                                            // D
-        Dc1 * (p[1][Nx - 1][Ny][0] + p[1][Nx - 1][Ny][0] + p[1][Nx][Ny - 1][0] + p[1][Nx][Ny - 1][0] + p[1][Nx][Ny][0 + 1]
-            + p[1][Nx][Ny][0 + 1] + 2 * p[1][Nx][Ny][0]) - Dc2 * p[2][Nx][Ny][0];
-    p[0][Nx][Ny][Nz] =                                                                                           // G
-        Dc1 * (p[1][Nx - 1][Ny][Nz] + p[1][Nx - 1][Ny][Nz] + p[1][Nx][Ny - 1][Nz] + p[1][Nx][Ny - 1][Nz] + p[1][Nx][Ny][Nz - 1]
-            + p[1][Nx][Ny][Nz - 1] + 2 * p[1][Nx][Ny][Nz]) - Dc2 * p[2][Nx][Ny][Nz];
+    /* ============================================ CORNERS ===============================================================*/
+
+    p[0][0] =                                                                                              // A
+        Dc1 * (p[1][(1)] + p[1][(1)] + p[1][(1)*Ny] + p[1][(1)*Ny] + p[1][(1)*Ny*Nz]
+            + p[1][(1)*Ny*Nz] + 2*p[1][0]) - Dc2 * p[2][0];
+    p[0][(Nz - 1)*Ny*Nz] =                                                                                             // E
+        Dc1 * (p[1][(1) + (Nz - 1)*Ny*Nz] + p[1][(1) + (Nz - 1)*Ny*Nz] + p[1][(1)*Ny + (Nz - 1)*Ny*Nz] + p[1][(1)*Ny + (Nz - 1)*Ny*Nz] + p[1][(Nz - 1 - 1)*Ny*Nz]
+            + p[1][(Nz - 1 - 1)*Ny*Nz] + 2*p[1][(Nz - 1)*Ny*Nz]) - Dc2 * p[2][(Nz - 1)*Ny*Nz];
+    p[0][(Ny - 1)*Ny] =                                                                                             // D
+        Dc1 * (p[1][(1) + (Ny - 1)*Ny] + p[1][(1) + (Ny - 1)*Ny] + p[1][(Ny - 1 - 1)*Ny] + p[1][(Ny - 1 - 1)*Ny] + p[1][(Ny - 1)*Ny + (1)*Ny*Nz]
+            + p[1][(Ny - 1)*Ny + (1)*Ny*Nz] + 2*p[1][(Ny - 1)*Ny]) - Dc2 * p[2][(Ny - 1)*Ny];
+    p[0][(Nx - 1)] =                                                                                             // B
+        Dc1 * (p[1][(Nz - 1 - 1)] + p[1][(Nz - 1 - 1)] + p[1][(Nx - 1) + (1)*Ny] + p[1][(Nx - 1) + (1)*Ny] + p[1][(Nx - 1) + (1)*Ny*Nz]
+            + p[1][(Nx - 1) + (1)*Ny*Nz] + 2*p[1][(Nx - 1)]) - Dc2 * p[2][(Nx - 1)];
+    p[0][(Ny - 1)*Ny + (Nz - 1)*Ny*Nz] =                                                                                            // H
+        Dc1 * (p[1][(1) + (Ny - 1)*Ny + (Nz - 1)*Ny*Nz] + p[1][(1) + (Ny - 1)*Ny + (Nz - 1)*Ny*Nz] + p[1][(Ny - 1 - 1)*Ny + (Nz - 1)*Ny*Nz] + p[1][(Ny - 1 - 1)*Ny + (Nz - 1)*Ny*Nz] + p[1][(Ny - 1)*Ny + (Nz - 1 - 1)*Ny*Nz]
+            + p[1][(Ny - 1)*Ny + (Nz - 1 - 1)*Ny*Nz] + 2*p[1][(Ny - 1)*Ny + (Nz - 1)*Ny*Nz]) - Dc2 * p[2][(Ny - 1)*Ny + (Nz - 1)*Ny*Nz];
+    p[0][(Nx - 1) + (Nz - 1)*Ny*Nz] =                                                                                            // F
+        Dc1 * (p[1][(Nz - 1 - 1) + (Nz - 1)*Ny*Nz] + p[1][(Nz - 1 - 1) + (Nz - 1)*Ny*Nz] + p[1][(Nx - 1) + (1)*Ny +  (Nz - 1)*Ny*Nz] + p[1][(Nx - 1) + (1)*Ny +  (Nz - 1)*Ny*Nz] + p[1][(Nx - 1) + (Nz - 1 - 1)*Ny*Nz]
+            + p[1][(Nx - 1) + (Nz - 1 - 1)*Ny*Nz] + 2*p[1][(Nx - 1) + (Nz - 1)*Ny*Nz]) - Dc2 * p[2][(Nx - 1) + (Nz - 1)*Ny*Nz];
+    p[0][(Nx - 1) + (Ny - 1)*Ny] =                                                                                            // D
+        Dc1 * (p[1][(Nz - 1 - 1) + (Ny - 1)*Ny] + p[1][(Nz - 1 - 1) + (Ny - 1)*Ny] + p[1][(Nx - 1) + (Ny - 1 - 1)*Ny] + p[1][(Nx - 1) + (Ny - 1 - 1)*Ny] + p[1][(Nx - 1) + (Ny - 1)*Ny + (1)*Ny*Nz]
+            + p[1][(Nx - 1) + (Ny - 1)*Ny + (1)*Ny*Nz] + 2*p[1][(Nx - 1) + (Ny - 1)*Ny]) - Dc2 * p[2][(Nx - 1) + (Ny - 1)*Ny];
+    p[0][(Nx - 1) + (Ny - 1)*Ny + (Nz - 1)*Ny*Nz] =                                                                                           // G
+        Dc1 * (p[1][(Nz - 1 - 1) + (Ny - 1)*Ny + (Nz - 1)*Ny*Nz] + p[1][(Nz - 1 - 1) + (Ny - 1)*Ny + (Nz - 1)*Ny*Nz] + p[1][(Nx - 1) + (Ny - 1 - 1)*Ny + (Nz - 1)*Ny*Nz] + p[1][(Nx - 1) + (Ny - 1 - 1)*Ny + (Nz - 1)*Ny*Nz] + p[1][(Nx - 1) + (Ny - 1)*Ny + (Nz - 1 - 1)*Ny*Nz]
+            + p[1][(Nx - 1) + (Ny - 1)*Ny + (Nz - 1 - 1)*Ny*Nz] + 2*p[1][(Nx - 1) + (Ny - 1)*Ny + (Nz - 1)*Ny*Nz]) - Dc2 * p[2][(Nx - 1) + (Ny - 1)*Ny + (Nz - 1)*Ny*Nz];
 
 }
 void FDS_ReverbAudioProcessor::updateStates() 
 {
-    for (int i = 0; i <= Nx; ++i)
-    {
-        for (int j = 0; j <= Ny; ++j)
-        {
-                double* pTmp = p[2][i][j];
-                p[2][i][j] = p[1][i][j];
-                p[1][i][j] = p[0][i][j];
-                p[0][i][j] = pTmp;
-        }
-    }
+                double* pTmp = p[2];
+                p[2] = p[1];
+                p[1] = p[0];
+                p[0] = pTmp;
 }
 //==============================================================================
 bool FDS_ReverbAudioProcessor::hasEditor() const
