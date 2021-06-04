@@ -189,13 +189,13 @@ void FDS_ReverbAudioProcessor::calculateScheme()
 /*
 
              H +--------+ G
-              /        /|
-             /        / |
+              /|       /|
+             / |      / |
           E +--------+ F|
-            |        |  |
-            |   D    |  + C
-            |        | /
-            |        |/
+            |  |     |  |
+            |  +-----|--+ 
+            | / D    | / C
+            |/       |/
             +--------+
             A        B
 
