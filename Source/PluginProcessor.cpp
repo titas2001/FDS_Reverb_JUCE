@@ -24,12 +24,12 @@ FDS_ReverbAudioProcessor::FDS_ReverbAudioProcessor()
 {
 
     Nx = Ny = Nz = 7;
-
+    N = Nx * Ny * Ny;
     pStates.reserve(3); // prevents allocation errors
     
 
     for (int i = 0; i < 3; ++i)
-        pStates.push_back(std::vector<double>(Nx, 0));
+        pStates.push_back(std::vector<double>(N, 0));
 
     p.resize(3);
     
@@ -177,7 +177,7 @@ void FDS_ReverbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
             p[1][3 + 3*Ny + 3*Ny*Nz] += vin;
             calculateScheme();
             updateStates();
-            vout = p[1][3 + 3*Ny + 3 *Ny*Nz];
+            vout = p[1][3 + 2 * Ny + 2 * Ny * Nz];
             buffer.setSample(channel, sample, vout);
         }
 
