@@ -1,0 +1,62 @@
+/******************************************************************************
+
+                              Online C++ Compiler.
+               Code, Compile, Run and Debug C++ program online.
+Write your code in this editor and press "Run" button to compile and execute it.
+
+*******************************************************************************/
+
+#include <iostream>
+#include <vector>
+
+
+int main()
+{
+    std::vector<std::vector<double>> pStates;
+    std::vector<double*> p; // vector of pointers to state vectors
+
+    pStates.reserve(3); // prevents allocation errors
+   
+    int Nx, Ny, Nz, N;
+    Nx = Ny = Nz = 5;
+    N = Nx*Ny*Nz;
+    
+    double Dg1 = 0.7;
+    double Dg2 = 0.5;
+    
+    for (int i = 0; i < 3; ++i)
+        pStates.push_back(std::vector<double>(N, 0));
+
+    p.resize(3);
+    
+    for (int i = 0; i < p.size(); ++i)
+        p[i] = &pStates[i][0];
+        
+    p[1][(1 + 1) + (1)*Ny + (1)*Ny*Nz] = 0.9;
+    for (int n = 0; n<10; ++n)
+    {
+        for (int i = 1; i < Nx-1; ++i)            // not including the boundaries
+    {
+        for (int j = 1; j < Ny-1; ++j)        // not including the boundaries
+        {
+            for (int k = 1; k < Nz-1; ++k)    // not including the boundaries
+            {
+                p[0][i + (j)*Ny + (k)*Ny*Nz] =
+                    Dg1 * (p[1][(i + 1) + (j)*Ny + (k)*Ny*Nz] + p[1][(i - 1) + (j)*Ny + (k)*Ny*Nz] + p[1][i + (j + 1)*Ny + (k)*Ny*Nz]
+                        + p[1][i + (j - 1)*Ny + (k)*Ny*Nz] + p[1][i + (j)*Ny + (k + 1) * Ny*Nz] + p[1][i + (j)*Ny + (k - 1)*Ny*Nz]
+                        + 2*p[1][i + (j)*Ny + (k)*Ny*Nz]) - Dg2 * p[2][i + (j)*Ny + (k)*Ny*Nz];
+            }
+        }
+    }
+                double* pTmp = p[2];
+                p[2] = p[1];
+                p[1] = p[0];
+                p[0] = pTmp;
+    }
+    
+    std::cout<<p[0][2 + (2)*Ny + (2)*Ny*Nz];
+      
+
+    
+    return 0;
+}
