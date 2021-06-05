@@ -108,24 +108,25 @@ void FDS_ReverbAudioProcessor::changeProgramName (int index, const juce::String&
 //==============================================================================
 void FDS_ReverbAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    c = 346;        // speed of sound in air 
+    c = 346.0;        // speed of sound in air 
     rho = 1.168;    // air density
-    v = 3200;       // speed of sound in concrete 
-    rhoC = 2400;    // concrete density
+    v = 3200.0;       // speed of sound in concrete 
+    rhoC = 2400.0;    // concrete density
     
     
     Z = rhoC * v;
     xi = Z / (rho * c);
-    R = (xi - 1) / (xi + 1);
+    R = (xi - 1.0) / (xi + 1.0);
 
-    Dg1 = 1 / 4;
-    Dg2 = 1;
-    Di1 = (R + 1) / (2 * (R + 3));
-    Di2 = (3 * R + 1) / (R + 3);
-    De1 = (R + 1) / (8);
+    Dg1 = 1.0 / 4.0;
+    Dg2 = 1.0;
+    Di1 = (R + 1.0) / (2.0 * (R + 3.0));
+    Di2 = (3.0 * R + 1) / (R + 3.0);
+    De1 = (R + 1.0) / (8.0);
     De2 = R;
-    Dc1 = (R + 1) / (2 * (5 - R));
-    Dc2 = (5 * R - 1) / (5 - R);
+    Dc1 = (R + 1.0) / (2.0 * (5.0 - R));
+    Dc2 = (5.0 * R - 1.0) / (5.0 - R);
+    vinPrev = 0;
 }
 
 void FDS_ReverbAudioProcessor::releaseResources()
@@ -168,17 +169,21 @@ void FDS_ReverbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
 
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
-
+    
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
-        for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+        for (int sample = 1; sample < buffer.getNumSamples(); ++sample)
         {
             vin = buffer.getSample(channel, sample);
+            //vinPrev = buffer.getSample(channel, sample);
             p[1][3 + 3*Ny + 3*Ny*Nz] += vin;
+            p[2][3 + 3*Ny + 3*Ny*Nz] += vinPrev;
+            //juce::Logger::getCurrentLogger()->outputDebugString("Input" + std::to_string(vin));
             calculateScheme();
             updateStates();
-            vout = p[1][3 + 2 * Ny + 2 * Ny * Nz];
+            vout = p[1][3 + 3*Ny + 3*Ny*Nz];
             buffer.setSample(channel, sample, vout);
+            vinPrev = vin;
         }
 
     }
@@ -187,18 +192,16 @@ void FDS_ReverbAudioProcessor::calculateScheme()
 
 
 /*
-
-             H +--------+ G
-              /|       /|
-             / |      / |
-          E +--------+ F|
-            |  |     |  |
-            |  +-----|--+ 
-            | / D    | / C
-            |/       |/
-            +--------+
-            A        B
-
+         H +--------+ G
+          /|       /|
+         / |      / |
+      E +--------+ F|
+        |  |     |  |
+        |  +-----|--+ 
+        | / D    | / C
+        |/       |/
+        +--------+
+        A        B
 */
 
 
@@ -212,8 +215,8 @@ void FDS_ReverbAudioProcessor::calculateScheme()
             for (int k = 1; k < Nz-1; ++k)    // not including the boundaries
             {
                 p[0][i + (j)*Ny + (k)*Ny*Nz] =
-                    Dg1 * (p[1][(i + 1) + (j)*Ny + (k)*Ny*Nz] + p[1][(i - 1) + (j)*Ny + (k)*Ny*Nz] + p[1][i + (j + 1) * Ny + (k)*Ny*Nz]
-                        + p[1][i + (j - 1) * Ny + (k)*Ny*Nz] + p[1][i + (j)*Ny + (k + 1) * Ny*Nz] + p[1][i + (j)*Ny + (k - 1)*Ny*Nz]
+                    Dg1 * (p[1][(i + 1) + (j)*Ny + (k)*Ny*Nz] + p[1][(i - 1) + (j)*Ny + (k)*Ny*Nz] + p[1][i + (j + 1)*Ny + (k)*Ny*Nz]
+                        + p[1][i + (j - 1)*Ny + (k)*Ny*Nz] + p[1][i + (j)*Ny + (k + 1) * Ny*Nz] + p[1][i + (j)*Ny + (k - 1)*Ny*Nz]
                         + 2*p[1][i + (j)*Ny + (k)*Ny*Nz]) - Dg2 * p[2][i + (j)*Ny + (k)*Ny*Nz];
             }
         }
@@ -242,7 +245,7 @@ void FDS_ReverbAudioProcessor::calculateScheme()
             Di1 * (p[1][(i + 1) + (k)*Ny*Nz] + p[1][(i - 1) + (k)*Ny*Nz] + p[1][i + (1)*Ny + (k)*Ny*Nz] + p[1][i + (1)*Ny + (k)*Ny*Nz] + p[1][i + (k + 1)*Ny*Nz]
                 + p[1][i + (k - 1)*Ny*Nz] + 2*p[1][i + (k)*Ny*Nz]) - Di2 * p[2][i + (k)*Ny*Nz];
 // Back CDGH
-            p[0][i + (Ny - 1)*Ny + (k)*Ny*Nz] =                                                                                             // Back CDGH
+            p[0][i + (Ny - 1)*Ny + (k)*Ny*Nz] =
                 Di1 * (p[1][(i + 1) + (Ny - 1)*Ny + (k)*Ny*Nz] + p[1][(i - 1) + (Ny - 1)*Ny + (k)*Ny*Nz] + p[1][i + (Ny - 1 - 1)*Ny + (k)*Ny*Nz] + p[1][i + (Ny - 1 - 1)*Ny + (k)*Ny*Nz] + p[1][i + (Ny)*Ny + (k + 1)*Ny*Nz]
                     + p[1][i + (Ny - 1)*Ny + (k - 1)*Ny*Nz] + 2*p[1][i + (Ny - 1)*Ny + (k)*Ny*Nz]) - Di2 * p[2][i + (Ny - 1)*Ny + (k)*Ny*Nz];
         }
@@ -358,11 +361,12 @@ void FDS_ReverbAudioProcessor::calculateScheme()
 
 }
 void FDS_ReverbAudioProcessor::updateStates() 
-{
-                double* pTmp = p[2];
-                p[2] = p[1];
-                p[1] = p[0];
-                p[0] = pTmp;
+{    
+    double* pTmp = p[2];
+    p[2] = p[1];
+    p[1] = p[0];
+    p[0] = pTmp;
+    //juce::Logger::getCurrentLogger()->outputDebugString("Output" + std::to_string(p[1][3 + 3*Ny + 3*Ny*Nz]));
 }
 //==============================================================================
 bool FDS_ReverbAudioProcessor::hasEditor() const
