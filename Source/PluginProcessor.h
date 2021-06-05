@@ -60,7 +60,7 @@ public:
 
 
 private:
-    float vin, vinPrev, vout;
+    double vin, vinPrev, vout;
     int Nx, Ny, Nz, N;
     double Dg1, Dg2, Di1, Di2, De1, De2, Dc1, Dc2, R, xi;
     double rho, c, Z, rhoC, v;
