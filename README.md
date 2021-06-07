@@ -1,2 +1,3 @@
 # FDS_Reverb_JUCE
- real time reverb
+ real time reverb work in progress
+ 
