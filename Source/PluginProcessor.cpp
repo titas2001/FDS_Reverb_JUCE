@@ -118,7 +118,7 @@ void FDS_ReverbAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
     xi = Z / (rho * c);
     R = (xi - 1.0) / (xi + 1.0);
  
-    Dg1 = 1.0 / 8.0;
+    Dg1 = 1.0 / 4.0;
     Dg2 = 1.0;
     Di1 = (R + 1.0) / (2.0 * (R + 3.0));
     Di2 = (3.0 * R + 1.0) / (R + 3.0);
@@ -177,21 +177,21 @@ void FDS_ReverbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
         {
             vin = buffer.getSample(channel, sample);
             vinPrev = buffer.getSample(channel, sample);
-            //if (sample == 0) {
-            //    p[1][3 + 3 * Ny + 3 * Ny * Nz] += 0.0;
-            //    p[2][3 + 3 * Ny + 3 * Ny * Nz] += 0.0;
-            //}
-            //else if (sample == 1){
-            //    p[1][3 + 3 * Ny + 3 * Ny * Nz] += 0.0;
-            //    p[2][3 + 3 * Ny + 3 * Ny * Nz] += 0.0;
-            //}
-            //else
-            //{
-            //    p[1][3 + 3 * Ny + 3 * Ny * Nz] += 0.0;
-            //    p[2][3 + 3 * Ny + 3 * Ny * Nz] += 0.0;
-            //}
-            p[1][3 + 3 * Ny + 3 * Ny * Nz] += vin;
-            p[2][3 + 3 * Ny + 3 * Ny * Nz] += vinPrev;
+            if (sample == 0) {
+                p[1][3 + 3 * Ny + 3 * Ny * Nz] += 1.0;
+                p[2][3 + 3 * Ny + 3 * Ny * Nz] += 1.0;
+            }
+            else if (sample == 1){
+                p[1][3 + 3 * Ny + 3 * Ny * Nz] += 0.0;
+                p[2][3 + 3 * Ny + 3 * Ny * Nz] += 0.0;
+            }
+            else
+            {
+                p[1][3 + 3 * Ny + 3 * Ny * Nz] += 0.0;
+                p[2][3 + 3 * Ny + 3 * Ny * Nz] += 0.0;
+            }
+            //p[1][3 + 3 * Ny + 3 * Ny * Nz] += vin;
+            //p[2][3 + 3 * Ny + 3 * Ny * Nz] += vinPrev;
 
             //juce::Logger::getCurrentLogger()->outputDebugString("Input" + std::to_string(vin));
             calculateScheme();
@@ -236,19 +236,19 @@ void FDS_ReverbAudioProcessor::calculateScheme()
             }
         }
     }
-    //juce::Logger::getCurrentLogger()->outputDebugString("Iteration done");
-    //double sum = 0;
-    //for (int i = 1 ; i < Nx - 1; ++i)            // not including the boundaries
-    //{
-    //    for (int j = 1; j < Ny - 1; ++j)        // not including the boundaries
-    //    {
-    //        for (int k = 1; k < Nz - 1; ++k)    // not including the boundaries
-    //        {
-    //            sum += std::abs(p[0][i + (j)*Ny + (k)*Ny * Nz]);
-    //        }
-    //    }
-    //}
-    //juce::Logger::getCurrentLogger()->outputDebugString("sum = "+std::to_string(sum));
+    juce::Logger::getCurrentLogger()->outputDebugString("Values updated");
+    double sum = 0;
+    for (int i = 1 ; i < Nx - 1; ++i)            // not including the boundaries
+    {
+        for (int j = 1; j < Ny - 1; ++j)        // not including the boundaries
+        {
+            for (int k = 1; k < Nz - 1; ++k)    // not including the boundaries
+            {
+                sum += std::abs(p[0][i + (j)*Ny + (k)*Ny * Nz]);
+            }
+        }
+    }
+    juce::Logger::getCurrentLogger()->outputDebugString("sum = "+std::to_string(sum));
     
     //=================================================== INTERIOR =========================================================================
     for (int i = 1; i < Nx - 1; ++i) // Top and bottom faces
