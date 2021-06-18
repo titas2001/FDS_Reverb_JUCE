@@ -23,7 +23,9 @@ FDS_ReverbAudioProcessor::FDS_ReverbAudioProcessor()
 #endif
 {
 
-    Nx = Ny = Nz = 10;
+    Nx = 20;
+    Ny = 20;
+    Nz = 20;
     N = Nx * Ny * Nz;
     pStates.reserve(3); // prevents allocation errors
     
@@ -116,8 +118,10 @@ void FDS_ReverbAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
     
     Z = rhoC * v;
     xi = Z / (rho * c);
-    R = (xi - 1.0) / (xi + 1.0);
- 
+    //R = (xi - 1.0) / (xi + 1.0);
+
+    R = 0.95;
+
     Dg1 = 1.0 / 4.0;
     Dg2 = 1.0;
     Di1 = (R + 1.0) / (2.0 * (R + 3.0));
@@ -177,21 +181,21 @@ void FDS_ReverbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
         {
             vin = buffer.getSample(channel, sample);
             vinPrev = buffer.getSample(channel, sample);
-            if (sample == 0) {
-                p[1][3 + 3 * Ny + 3 * Ny * Nz] += 1.0;
-                p[2][3 + 3 * Ny + 3 * Ny * Nz] += 1.0;
-            }
-            else if (sample == 1){
-                p[1][3 + 3 * Ny + 3 * Ny * Nz] += 0.0;
-                p[2][3 + 3 * Ny + 3 * Ny * Nz] += 0.0;
-            }
-            else
-            {
-                p[1][3 + 3 * Ny + 3 * Ny * Nz] += 0.0;
-                p[2][3 + 3 * Ny + 3 * Ny * Nz] += 0.0;
-            }
-            //p[1][3 + 3 * Ny + 3 * Ny * Nz] += vin;
-            //p[2][3 + 3 * Ny + 3 * Ny * Nz] += vinPrev;
+            //if (sample == 0) {
+            //    p[1][3 + 3 * Ny + 3 * Ny * Nz] += 1.0;
+            //    p[2][3 + 3 * Ny + 3 * Ny * Nz] += 1.0;
+            //}
+            //else if (sample == 1){
+            //    p[1][3 + 3 * Ny + 3 * Ny * Nz] += 0.0;
+            //    p[2][3 + 3 * Ny + 3 * Ny * Nz] += 0.0;
+            //}
+            //else
+            //{
+            //    p[1][3 + 3 * Ny + 3 * Ny * Nz] += 0.0;
+            //    p[2][3 + 3 * Ny + 3 * Ny * Nz] += 0.0;
+            //}
+            p[1][3 + 3 * Ny + 3 * Ny * Nz] += vin;
+            p[2][3 + 3 * Ny + 3 * Ny * Nz] += vinPrev;
 
             //juce::Logger::getCurrentLogger()->outputDebugString("Input" + std::to_string(vin));
             calculateScheme();
@@ -236,19 +240,19 @@ void FDS_ReverbAudioProcessor::calculateScheme()
             }
         }
     }
-    juce::Logger::getCurrentLogger()->outputDebugString("Values updated");
-    double sum = 0;
-    for (int i = 1 ; i < Nx - 1; ++i)            // not including the boundaries
-    {
-        for (int j = 1; j < Ny - 1; ++j)        // not including the boundaries
-        {
-            for (int k = 1; k < Nz - 1; ++k)    // not including the boundaries
-            {
-                sum += std::abs(p[0][i + (j)*Ny + (k)*Ny * Nz]);
-            }
-        }
-    }
-    juce::Logger::getCurrentLogger()->outputDebugString("sum = "+std::to_string(sum));
+    //juce::Logger::getCurrentLogger()->outputDebugString("Values updated");
+    //double sum = 0;
+    //for (int i = 1 ; i < Nx - 1; ++i)            // not including the boundaries
+    //{
+    //    for (int j = 1; j < Ny - 1; ++j)        // not including the boundaries
+    //    {
+    //        for (int k = 1; k < Nz - 1; ++k)    // not including the boundaries
+    //        {
+    //            sum += std::abs(p[0][i + (j)*Ny + (k)*Ny * Nz]);
+    //        }
+    //    }
+    //}
+    //juce::Logger::getCurrentLogger()->outputDebugString("sum = "+std::to_string(sum));
     
     //=================================================== INTERIOR =========================================================================
     for (int i = 1; i < Nx - 1; ++i) // Top and bottom faces
@@ -418,10 +422,10 @@ void FDS_ReverbAudioProcessor::calculateScheme()
 
 void FDS_ReverbAudioProcessor::updateStates() 
 {    
-    double* pTmp = p[2];
+    //double* pTmp = p[2];
     p[2] = p[1];
     p[1] = p[0];
-    p[0] = pTmp;
+    //p[0] = pTmp;
     //juce::Logger::getCurrentLogger()->outputDebugString("Output" + std::to_string(p[1][3 + 3*Ny + 3*Ny*Nz]));
 }
 //==============================================================================
