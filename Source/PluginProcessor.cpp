@@ -23,9 +23,9 @@ FDS_ReverbAudioProcessor::FDS_ReverbAudioProcessor()
 #endif
 {
 
-    Nx = 10;
-    Ny = 10;
-    Nz = 10;
+    Nx = 20;
+    Ny = 20;
+    Nz = 20;
     N = Nx * Ny * Nz;
     pStates.reserve(3); // prevents allocation errors
     
@@ -175,7 +175,7 @@ void FDS_ReverbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
     
-    for (int channel = 0; channel < totalNumInputChannels; ++channel)
+    for (int channel = 1; channel < totalNumInputChannels; ++channel) ///// made mono 
     {
         for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
         {
@@ -201,7 +201,8 @@ void FDS_ReverbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
             calculateScheme();
             updateStates();
             vout = p[1][5 + 7*Ny + 7*Ny*Nz];
-            buffer.setSample(channel, sample, vout);
+            buffer.setSample(0, sample, vout); 
+            buffer.setSample(1, sample, vout);
             vinPrev = vin;
         }
 
@@ -225,7 +226,7 @@ void FDS_ReverbAudioProcessor::calculateScheme()
 
 /*
         TO DO
-        change form of flattening from p[n][i + (j)*Ny + (k)*Ny*Nz] to p[n][i + Nx* (j + Ny * k)] 
+        change form of flattening from p[n][i + (j)*Ny + (k)*Ny*Nz] to p[n][i + Nx*(j + Ny*k)] 
 
         !!! Nx <= Ny !!!
 
