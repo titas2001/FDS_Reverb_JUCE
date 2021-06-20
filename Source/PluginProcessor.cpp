@@ -23,9 +23,9 @@ FDS_ReverbAudioProcessor::FDS_ReverbAudioProcessor()
 #endif
 {
 
-    Nx = 20;
-    Ny = 20;
-    Nz = 20;
+    Nx = 10;
+    Ny = 10;
+    Nz = 10;
     N = Nx * Ny * Nz;
     pStates.reserve(3); // prevents allocation errors
     
@@ -180,7 +180,7 @@ void FDS_ReverbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
         for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
         {
             vin = buffer.getSample(channel, sample);
-            vinPrev = buffer.getSample(channel, sample);
+
             //if (sample == 0) {
             //    p[1][3 + 3 * Ny + 3 * Ny * Nz] += 1.0;
             //    p[2][3 + 3 * Ny + 3 * Ny * Nz] += 1.0;
@@ -200,7 +200,7 @@ void FDS_ReverbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
             //juce::Logger::getCurrentLogger()->outputDebugString("Input" + std::to_string(vin));
             calculateScheme();
             updateStates();
-            vout = p[1][3 + 3*Ny + 3*Ny*Nz];
+            vout = p[1][5 + 7*Ny + 7*Ny*Nz];
             buffer.setSample(channel, sample, vout);
             vinPrev = vin;
         }
@@ -221,6 +221,14 @@ void FDS_ReverbAudioProcessor::calculateScheme()
         |/       |/
         +--------+
         A        B
+*/
+
+/*
+        TO DO
+        change form of flattening from p[n][i + (j)*Ny + (k)*Ny*Nz] to p[n][i + Nx* (j + Ny * k)] 
+
+        !!! Nx <= Ny !!!
+
 */
 
 
@@ -422,10 +430,10 @@ void FDS_ReverbAudioProcessor::calculateScheme()
 
 void FDS_ReverbAudioProcessor::updateStates() 
 {    
-    //double* pTmp = p[2];
+    double* pTmp = p[2];
     p[2] = p[1];
     p[1] = p[0];
-    //p[0] = pTmp;
+    p[0] = pTmp;
     //juce::Logger::getCurrentLogger()->outputDebugString("Output" + std::to_string(p[1][3 + 3*Ny + 3*Ny*Nz]));
 }
 //==============================================================================
